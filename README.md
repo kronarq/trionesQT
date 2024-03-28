@@ -9,10 +9,7 @@ TrionesQT is a GUI for controling Triones RGB lights. It uses trionesControl and
 - Choose a color from color picker
 - QT6 based intergace
 
-## Todo
-
-[TODO.md]
-
+## [TODO](TODO.md)
 
 ## Thanks
 
