@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import json
 from PyQt6 import QtCore, QtGui, QtWidgets, uic
