@@ -7,9 +7,15 @@ TrionesQT is a GUI for controling Triones RGB lights. It uses trionesControl and
 - Add multiple lights
 - Turn them all On and Off
 - Choose a color from color picker
-- QT6 based intergace
+- QT6 based interface
 
-## [TODO](TODO.md)
+## Prerequisites
+```
+pip install PyQt6 trionesControl
+```
+
+## Todo
+See [TODO.md](TODO.md)
 
 ## Thanks
 
