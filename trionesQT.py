@@ -95,15 +95,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def save(self):
         with open('data.json', 'w') as f:
-            data = json.dump(self.model.devices, f)
+            json.dump(self.model.devices, f)
 
     def connect(self):
-        for status, address in self.model.devices:
+        if self.connections:
+            self.disconnect()
+        for _, address in self.model.devices:
             self.mainLog.append("Connecting to " + address)
             light = tc.connect(address, False)
             if light is None:
                 self.mainLog.append("Failed to connect to the light " + address)
-                sys.exit(1)
+                continue
             self.updateStatus(True, address)
             self.mainLog.append("Connected to " + address)
             self.connections.append(light)
@@ -116,6 +118,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             except Exception:
                 self.mainLog.append("Failed to disconnect from " + light._address)
             self.updateStatus(False, light._address)
+        self.connections.clear()
 
     def turnOn(self):
         for light in self.connections:
@@ -163,7 +166,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.disconnect(self)
+                self.disconnect()
             except Exception:
                 self.mainLog.append("Failed to disconnect from lights")
             for i, (status, address) in enumerate(self.model.devices):
