@@ -19,24 +19,54 @@ Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 tick = QStyle.StandardPixmap.SP_DialogNoButton
 
 
+class Device:
+    """Represent a single Triones light."""
+
+    def __init__(self, address: str):
+        self.address = address
+        self.connection = None
+
+    @property
+    def connected(self) -> bool:
+        return self.connection is not None
+
+    def connect(self) -> bool:
+        if not self.connected:
+            self.connection = tc.connect(self.address, False)
+        return self.connected
+
+    def disconnect(self):
+        if self.connected:
+            tc.disconnect(self.connection)
+            self.connection = None
+
+    def power_on(self):
+        if self.connected:
+            tc.powerOn(self.connection)
+
+    def power_off(self):
+        if self.connected:
+            tc.powerOff(self.connection)
+
+    def set_color(self, r: int, g: int, b: int):
+        if self.connected:
+            tc.setRGB(r, g, b, self.connection)
+
+
 class DevModel(QtCore.QAbstractListModel):
     def __init__(self, *args, devices=None, connectedIcon=None, disconnectedIcon=None, **kwargs):
         super(DevModel, self).__init__(*args, **kwargs)
         self.devices = devices or []
         self.connectedIcon = connectedIcon
         self.disconnectedIcon = disconnectedIcon
-        
+
     def data(self, index, role):
         if role == Qt.ItemDataRole.DisplayRole:
-            _, text = self.devices[index.row()]
-            return text
-        
+            return self.devices[index.row()].address
+
         if role == Qt.ItemDataRole.DecorationRole:
-            status, _ = self.devices[index.row()]
-            if status:
-                return self.connectedIcon
-            else:
-                return self.disconnectedIcon
+            device = self.devices[index.row()]
+            return self.connectedIcon if device.connected else self.disconnectedIcon
 
 
 
@@ -51,8 +81,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.connectedIcon = self.style().standardIcon(QStyle.StandardPixmap.SP_DialogYesButton)
         self.disconnectedIcon = self.style().standardIcon(QStyle.StandardPixmap.SP_DialogNoButton)
-        self.model = DevModel(connectedIcon=self.connectedIcon, disconnectedIcon=self.disconnectedIcon)
-        self.connections = [];
+        self.model = DevModel(connectedIcon=self.connectedIcon,
+                              disconnectedIcon=self.disconnectedIcon)
         self.load()
         self.deviceView.setModel(self.model)
         self.addButton.pressed.connect(self.add)
@@ -80,7 +110,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.deviceEdit.setText("")
             return
         # Access the list via the model.
-        self.model.devices.append((False, text))
+        self.model.devices.append(Device(text))
         # Trigger refresh.
         self.model.layoutChanged.emit()
         # Empty the input
@@ -103,58 +133,61 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.mainLog.append("Loading data")
         try:
             with open('data.json', 'r') as f:
-                self.model.devices = json.load(f)
+                addresses = json.load(f)
+                self.model.devices = [Device(a) for a in addresses]
         except Exception:
             self.mainLog.append("Failed to load data")
             pass
 
     def save(self):
         with open('data.json', 'w') as f:
-            json.dump(self.model.devices, f)
+            json.dump([d.address for d in self.model.devices], f)
 
     def connect(self):
-        if self.connections:
-            self.disconnect()
-        for _, address in self.model.devices:
-            self.mainLog.append("Connecting to " + address)
-            light = tc.connect(address, False)
-            if light is None:
-                self.mainLog.append("Failed to connect to the light " + address)
+        for device in self.model.devices:
+            if device.connected:
                 continue
-            self.updateStatus(True, address)
-            self.mainLog.append("Connected to " + address)
-            self.connections.append(light)
+            self.mainLog.append("Connecting to " + device.address)
+            if not device.connect():
+                self.mainLog.append("Failed to connect to the light " + device.address)
+                continue
+            self.updateStatus(device.address)
+            self.mainLog.append("Connected to " + device.address)
 
     def disconnect(self):
-        for light in self.connections:
-            self.mainLog.append("Disconnecting from " + light._address)
+        for device in self.model.devices:
+            if not device.connected:
+                continue
+            self.mainLog.append("Disconnecting from " + device.address)
             try:
-                tc.disconnect(light)
+                device.disconnect()
             except Exception:
-                self.mainLog.append("Failed to disconnect from " + light._address)
-            self.updateStatus(False, light._address)
-        self.connections.clear()
+                self.mainLog.append("Failed to disconnect from " + device.address)
+            self.updateStatus(device.address)
 
     def turnOn(self):
-        for light in self.connections:
-            self.mainLog.append("Turning on " + light._address)
-            try:
-                tc.powerOn(light)
-            except Exception:
-                self.mainLog.append("Failed to turn on " + light._address)
+        for device in self.model.devices:
+            if device.connected:
+                self.mainLog.append("Turning on " + device.address)
+                try:
+                    device.power_on()
+                except Exception:
+                    self.mainLog.append("Failed to turn on " + device.address)
 
     def turnOff(self):
-        for light in self.connections:
-            self.mainLog.append("Turning off " + light._address)
-            try:
-                tc.powerOff(light)
-            except Exception:
-                self.mainLog.append("Failed to turn off " + light._address)
+        for device in self.model.devices:
+            if device.connected:
+                self.mainLog.append("Turning off " + device.address)
+                try:
+                    device.power_off()
+                except Exception:
+                    self.mainLog.append("Failed to turn off " + device.address)
 
     def changeColor(self):
-        for light in self.connections:
-            self.mainLog.append("Changing color on " + light._address)
-            tc.setRGB(255, 0, 0, light)
+        for device in self.model.devices:
+            if device.connected:
+                self.mainLog.append("Changing color on " + device.address)
+                device.set_color(255, 0, 0)
 
     def chooseColor(self):
         color = QtWidgets.QColorDialog.getColor()
@@ -162,14 +195,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.colorWidget.setStyleSheet("QWidget { background-color: %s }" % color.name())
             self.colorWidget.color = color
             self.colorWidget.update()
-            for light in self.connections:
-                self.mainLog.append("Changing color on " + light._address)
-                tc.setRGB(color.red(), color.green(), color.blue(), light)
+            for device in self.model.devices:
+                if device.connected:
+                    self.mainLog.append("Changing color on " + device.address)
+                    device.set_color(color.red(), color.green(), color.blue())
 
-    def updateStatus(self, status, address):
-        for i, (_, a) in enumerate(self.model.devices):
-            if a == address:
-                self.model.devices[i] = (status, address)
+    def updateStatus(self, address):
+        for i, device in enumerate(self.model.devices):
+            if device.address == address:
                 index = self.model.index(i)
                 self.model.dataChanged.emit(index, index)
                 self.save()
@@ -184,11 +217,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 self.disconnect()
             except Exception:
                 self.mainLog.append("Failed to disconnect from lights")
-            for i, (status, address) in enumerate(self.model.devices):
-                    self.model.devices[i] = (False, address)
-                    index = self.model.index(i)
-                    self.model.dataChanged.emit(index, index)
-                    self.save()
             event.accept()
         else:
             event.ignore()
