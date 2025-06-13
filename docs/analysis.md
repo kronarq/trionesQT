@@ -25,4 +25,4 @@ TrionesQT is a PyQt6 application that provides a GUI for controlling Triones RGB
 
 ## Summary
 
-The project is a minimal yet functional PyQt6 interface for controlling Triones lights. Future work could focus on enhancing the device model, improving user experience, and adding features such as Bluetooth scanning.
+The project is a minimal yet functional PyQt6 interface for controlling Triones lights. The `add` dialog now validates MAC addresses before accepting them. Future work could focus on enhancing the device model, improving user experience, and adding features such as Bluetooth scanning.

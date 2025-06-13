@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import json
+import re
 from PyQt6 import QtCore, QtGui, QtWidgets, uic
 from PyQt6.QtWidgets import QStyle, QMessageBox
 from PyQt6.QtCore import Qt
@@ -56,6 +57,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.offButton.pressed.connect(self.turnOff)
         self.changeColorButton.pressed.connect(self.chooseColor)
 
+        self.mac_pattern = re.compile(r"^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$")
+
 
     def add(self):
         """
@@ -63,12 +66,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         and then clearing it.
         """
         text = self.deviceEdit.text()
-        if text: # Don't add empty strings.
-            # Access the list via the model.
-            self.model.devices.append((False, text))
-            # Trigger refresh.        
+        if text:
+            if not self.mac_pattern.match(text.strip()):
+                QMessageBox.warning(self, "Invalid MAC Address",
+                                    "Please enter a valid MAC address (AA:BB:CC:DD:EE:FF)")
+                return
+            self.model.devices.append((False, text.strip()))
             self.model.layoutChanged.emit()
-            # Empty the input
             self.deviceEdit.setText("")
             self.save()
         
