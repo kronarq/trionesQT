@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 import sys
 import json
+import re
 from PyQt6 import QtCore, QtGui, QtWidgets, uic
 from PyQt6.QtWidgets import QStyle, QMessageBox
 from PyQt6.QtCore import Qt
 import trionesControl.trionesControl as tc
+
+# Accept colon- or hyphen-separated MAC addresses or 12 hex digits without
+# separators.
+MAC_RE = re.compile(
+    r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$|^[0-9A-Fa-f]{12}$"
+)
 
 
 qt_creator_file = "mainwindow.ui"
@@ -56,6 +63,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.offButton.pressed.connect(self.turnOff)
         self.changeColorButton.pressed.connect(self.chooseColor)
 
+    def validateMac(self, address: str) -> bool:
+        """Return True if *address* looks like a valid MAC address."""
+        return bool(MAC_RE.match(address.strip()))
 
     def add(self):
         """
@@ -63,14 +73,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         and then clearing it.
         """
         text = self.deviceEdit.text()
-        if text: # Don't add empty strings.
-            # Access the list via the model.
-            self.model.devices.append((False, text))
-            # Trigger refresh.        
-            self.model.layoutChanged.emit()
-            # Empty the input
+        if not text:
+            return
+        if not self.validateMac(text):
+            self.mainLog.append(f"Invalid MAC address: {text}")
             self.deviceEdit.setText("")
-            self.save()
+            return
+        # Access the list via the model.
+        self.model.devices.append((False, text))
+        # Trigger refresh.
+        self.model.layoutChanged.emit()
+        # Empty the input
+        self.deviceEdit.setText("")
+        self.save()
         
     def delete(self):
         indexes = self.deviceView.selectedIndexes()

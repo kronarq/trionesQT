@@ -11,6 +11,7 @@ TrionesQT is a PyQt6 application that provides a GUI for controlling Triones RGB
 ## Key Features
 
 - Add/remove multiple lights by Bluetooth MAC address.
+- Validate MAC addresses when adding devices.
 - Connect to all configured lights simultaneously.
 - Power lights on and off and change their RGB color.
 - Persist the device list to a local JSON file (`data.json`).
