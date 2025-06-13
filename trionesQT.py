@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import sys
-import json
 import re
+from dataclasses import dataclass
+import serde
+import serde.json as serde_json
 from PyQt6 import QtCore, QtGui, QtWidgets, uic
 from PyQt6.QtWidgets import QStyle, QMessageBox
 from PyQt6.QtCore import Qt
@@ -19,12 +21,15 @@ Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 tick = QStyle.StandardPixmap.SP_DialogNoButton
 
 
+@serde.serialize
+@serde.deserialize
+@dataclass
 class Device:
     """Represent a single Triones light."""
 
-    def __init__(self, address: str):
-        self.address = address
-        self.connection = None
+    address: str
+    # Connection objects cannot be serialized so skip them.
+    connection: object | None = serde.field(default=None, skip=True)
 
     @property
     def connected(self) -> bool:
@@ -133,15 +138,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.mainLog.append("Loading data")
         try:
             with open('data.json', 'r') as f:
-                addresses = json.load(f)
-                self.model.devices = [Device(a) for a in addresses]
+                data = f.read()
+                self.model.devices = serde_json.from_json(list[Device], data)
         except Exception:
             self.mainLog.append("Failed to load data")
             pass
 
     def save(self):
         with open('data.json', 'w') as f:
-            json.dump([d.address for d in self.model.devices], f)
+            f.write(serde_json.to_json(self.model.devices, indent=2))
 
     def connect(self):
         for device in self.model.devices:
